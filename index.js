@@ -11,8 +11,27 @@ let jobIds = [];
 let sentJobIds = new Set();
 
 app.get("/", (req, res) => {
-  res.type('text/plain');
-  res.send(jobIds.length > 0 ? jobIds.join('\n') : 'Loading...');
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Job IDs</title>
+      <meta http-equiv="refresh" content="2">
+      <style>
+        body { font-family: monospace; background: #1a1a1a; color: #0f0; padding: 20px; }
+        h1 { color: #0f0; }
+        .job-id { padding: 5px 0; font-size: 16px; }
+      </style>
+    </head>
+    <body>
+      <h1>Job IDs</h1>
+      ${jobIds.length > 0 
+        ? jobIds.map(id => `<div class="job-id">${id}</div>`).join('') 
+        : '<p>Loading...</p>'}
+    </body>
+    </html>
+  `;
+  res.send(html);
 });
 
 app.get("/jobids", (req, res) => {
