@@ -11,7 +11,6 @@ const PLACE_ID = "109983668079237";
 let jobData = [];
 let sentJobIds = new Set();
 
-
 app.get("/", (req, res) => {
   const html = `
     <!DOCTYPE html>
@@ -79,6 +78,11 @@ async function sendToDiscord(newJobs) {
             {
               name: "🆔 JOBID PC",
               value: `\`\`\`ansi\n\u001b[2;34m${job.jobId}\u001b[0m\n\`\`\``,
+              inline: false
+            },
+            {
+              name: "🔗 Join Link",
+              value: `[Join Server](${job.link})`,
               inline: false
             }
           ]
