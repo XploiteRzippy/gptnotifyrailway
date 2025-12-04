@@ -10,6 +10,7 @@ const PLACE_ID = "109983668079237";
 
 let jobData = [];
 let sentJobIds = new Set();
+let isSending = false;
 
 app.get("/", (req, res) => {
   const html = `
@@ -41,9 +42,15 @@ app.get("/jobids", (req, res) => {
 });
 
 async function sendToDiscord(newJobs) {
-  if (!DISCORD_WEBHOOK_URL || newJobs.length === 0) return;
+  if (!DISCORD_WEBHOOK_URL || newJobs.length === 0 || isSending) return;
+
+  isSending = true;
 
   for (const job of newJobs) {
+    if (sentJobIds.has(job.jobId)) continue;
+    
+    sentJobIds.add(job.jobId);
+    
     try {
       const message = {
         embeds: [{
@@ -99,20 +106,16 @@ async function sendToDiscord(newJobs) {
 
       if (response.ok) {
         console.log(`Sent ${job.name} to Discord`);
-        sentJobIds.add(job.jobId);
       } else if (response.status === 429) {
         const retryAfter = response.headers.get('retry-after') || 5;
         console.log(`Rate limited, waiting ${retryAfter} seconds...`);
         await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-        const retryResponse = await fetch(DISCORD_WEBHOOK_URL, {
+        await fetch(DISCORD_WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(message)
         });
-        if (retryResponse.ok) {
-          console.log(`Sent ${job.name} to Discord (retry)`);
-          sentJobIds.add(job.jobId);
-        }
+        console.log(`Sent ${job.name} to Discord (retry)`);
       } else {
         console.error("Discord webhook error:", response.status, response.statusText);
       }
@@ -122,6 +125,8 @@ async function sendToDiscord(newJobs) {
       console.error("Error sending to Discord:", err.message);
     }
   }
+  
+  isSending = false;
 }
 
 async function fetchJobIds() {
@@ -155,7 +160,7 @@ async function fetchJobIds() {
 
       const newJobs = jobData.filter(job => !sentJobIds.has(job.jobId));
       if (newJobs.length > 0) {
-        await sendToDiscord(newJobs);
+        sendToDiscord(newJobs);
       }
     }
   } catch (err) {
