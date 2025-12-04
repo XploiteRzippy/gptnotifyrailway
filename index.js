@@ -43,8 +43,8 @@ app.get("/jobids", (req, res) => {
 async function sendToDiscord(newJobs) {
   if (!DISCORD_WEBHOOK_URL || newJobs.length === 0) return;
 
-  try {
-    for (const job of newJobs) {
+  for (const job of newJobs) {
+    try {
       const message = {
         embeds: [{
           title: "GPT NOTIFY",
@@ -100,14 +100,27 @@ async function sendToDiscord(newJobs) {
       if (response.ok) {
         console.log(`Sent ${job.name} to Discord`);
         sentJobIds.add(job.jobId);
+      } else if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after') || 5;
+        console.log(`Rate limited, waiting ${retryAfter} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+        const retryResponse = await fetch(DISCORD_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(message)
+        });
+        if (retryResponse.ok) {
+          console.log(`Sent ${job.name} to Discord (retry)`);
+          sentJobIds.add(job.jobId);
+        }
       } else {
         console.error("Discord webhook error:", response.status, response.statusText);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (err) {
+      console.error("Error sending to Discord:", err.message);
     }
-  } catch (err) {
-    console.error("Error sending to Discord:", err.message);
   }
 }
 
@@ -117,17 +130,21 @@ async function fetchJobIds() {
     const data = await response.json();
 
     if (data && data.pets) {
+      const seenIds = new Set();
       jobData = data.pets.map(p => {
         const link = p.chillihubLink || "";
         const jobIdMatch = link.match(/gameInstanceId=([\w-]+)/);
         if (jobIdMatch) {
+          const jobId = jobIdMatch[1];
+          if (seenIds.has(jobId)) return null;
+          seenIds.add(jobId);
           return {
             name: p.name || "Unknown",
             mutation: p.mutation || "None",
             money: p.money || "Unknown",
             tier: p.tier || "Unknown",
             players: p.players || "?/?",
-            jobId: jobIdMatch[1],
+            jobId: jobId,
             link: link
           };
         }
