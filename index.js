@@ -143,11 +143,13 @@ async function fetchJobIds() {
           const jobId = jobIdMatch[1];
           if (seenIds.has(jobId)) return null;
           seenIds.add(jobId);
+          const name = p.name || "Unknown";
+          const isOG = (name === "Strawberry Elephant" || name === "Meowl");
           return {
-            name: p.name || "Unknown",
+            name: name,
             mutation: p.mutation || "None",
             money: p.money || "Unknown",
-            tier: p.tier || "Unknown",
+            tier: isOG ? "OG TIER" : "Secret",
             players: p.players || "?/?",
             jobId: jobId,
             link: link
